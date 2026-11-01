@@ -140,6 +140,27 @@ pub struct EventRecord {
     pub input_data_versions: Vec<(String, String)>,
 }
 
+/// A place in the event log, in the order the storage server ingested rows.
+///
+/// Ordered by `ingested_at`, then `event_id`, so it totally orders every row
+/// even when two land in the same nanosecond.
+#[derive(
+    Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, serde::Serialize, serde::Deserialize,
+)]
+pub struct EventLogPosition {
+    /// Server clock (nanoseconds since the Unix epoch) when the row was inserted.
+    pub ingested_at: i64,
+    /// Key of the event's record id.
+    pub event_id: String,
+}
+
+/// An event read back from the log together with its log position.
+#[derive(Debug, Clone, PartialEq)]
+pub struct IngestedEvent {
+    pub position: EventLogPosition,
+    pub event: EventRecord,
+}
+
 /// One asset's step reaching a terminal state inside one run.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct StepOutcome {

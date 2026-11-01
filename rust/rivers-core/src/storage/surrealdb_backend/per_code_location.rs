@@ -6,8 +6,9 @@ use surrealdb::types::{RecordId, SurrealValue};
 use crate::storage::retry;
 use crate::storage::{
     AssetRecord, AssetScope, BackfillRecord, BackfillStatus, ConcurrencyClaimStatus,
-    CoordinatorRunInfo, PartitionKey, PerCodeLocationStorage, PoolInfo, PoolLimit, RunRecord,
-    RunStatus, SlotHolder, StoredConditionEval, StoredConditionTick, StoredEvent, StoredTick,
+    CoordinatorRunInfo, EventLogPosition, IngestedEvent, PartitionKey, PerCodeLocationStorage,
+    PoolInfo, PoolLimit, RunRecord, RunStatus, SlotHolder, StoredConditionEval,
+    StoredConditionTick, StoredEvent, StoredTick,
 };
 
 use super::pools::PoolContended;
@@ -1266,6 +1267,108 @@ impl PerCodeLocationStorage for SurrealStorage {
             let runs: Vec<RunRecord> = result.take(0)?;
             Ok(runs)
         })
+        .await
+    }
+
+    async fn get_runs_ended_after(
+        &self,
+        code_location_id: &str,
+        after: Option<(i64, &str)>,
+        until: i64,
+        limit: usize,
+    ) -> Result<Vec<RunRecord>> {
+        let after_filter = if after.is_some() {
+            " AND (end_time > $after_end OR (end_time = $after_end AND run_id > $after_id))"
+        } else {
+            ""
+        };
+        let query = format!(
+            "SELECT * FROM runs \
+                 WHERE code_location_id = $cl AND status IN ['Success', 'Failure', 'Canceled'] \
+                 AND end_time != NONE AND end_time <= $until{after_filter} \
+                 ORDER BY end_time ASC, run_id ASC LIMIT $limit"
+        );
+        let after_end = after.map(|(t, _)| t);
+        let after_id = after.map(|(_, id)| id.to_string());
+        retry::with_retry(&self.retry_config, || async {
+            let mut result = self
+                .db
+                .query(query.as_str())
+                .bind(("cl", code_location_id.to_string()))
+                .bind(("until", until))
+                .bind(("after_end", after_end))
+                .bind(("after_id", after_id.clone()))
+                .bind(("limit", limit))
+                .await?;
+            let runs: Vec<RunRecord> = result.take(0)?;
+            Ok(runs)
+        })
+        .await
+    }
+
+    async fn get_events_ingested_after(
+        &self,
+        code_location_id: &str,
+        after: Option<&EventLogPosition>,
+        settle_ns: i64,
+        limit: usize,
+    ) -> Result<Vec<IngestedEvent>> {
+        // `id` breaks ties within one nanosecond; record ids of one table
+        // compare by key.
+        let after_filter = if after.is_some() {
+            " AND (ingested_at > $after_ts OR (ingested_at = $after_ts AND id > $after_id))"
+        } else {
+            ""
+        };
+        let query = format!(
+            "SELECT * FROM events \
+                 WHERE code_location_id = $cl AND ingested_at != NONE \
+                 AND ingested_at <= time::nano(time::now()) - $settle{after_filter} \
+                 ORDER BY ingested_at ASC, id ASC LIMIT $limit"
+        );
+        let after_ts = after.map(|p| p.ingested_at);
+        let after_id = after.map(|p| RecordId::new("events", p.event_id.clone()));
+        retry::with_retry(&self.retry_config, || async {
+            let mut result = self
+                .db
+                .query(query.as_str())
+                .bind(("cl", code_location_id.to_string()))
+                .bind(("settle", settle_ns))
+                .bind(("after_ts", after_ts))
+                .bind(("after_id", after_id.clone()))
+                .bind(("limit", limit))
+                .await?;
+            let rows: Vec<DbIngestedEvent> = result.take(0)?;
+            Ok(rows
+                .into_iter()
+                .filter_map(DbIngestedEvent::into_ingested_event)
+                .collect())
+        })
+        .await
+    }
+
+    async fn get_event_log_cursor(
+        &self,
+        code_location_id: &str,
+        consumer: &str,
+    ) -> Result<Option<EventLogPosition>> {
+        let key = crate::event_log_cursor_key(code_location_id, consumer);
+        retry::with_retry(&self.retry_config, || async {
+            self.kv_get_json(&key).await
+        })
+        .await
+    }
+
+    async fn set_event_log_cursor(
+        &self,
+        code_location_id: &str,
+        consumer: &str,
+        position: &EventLogPosition,
+    ) -> Result<()> {
+        self.kv_set_json(
+            &crate::event_log_cursor_key(code_location_id, consumer),
+            position,
+        )
         .await
     }
 

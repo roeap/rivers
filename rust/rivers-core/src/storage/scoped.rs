@@ -5,9 +5,10 @@ use anyhow::Result;
 
 use super::{
     AssetRecord, AssetScope, BackfillRecord, BackfillStatus, CodeLocationContext,
-    ConcurrencyClaimStatus, CoordinatorRunInfo, PartitionKey, PerCodeLocationStorage, PoolInfo,
-    PoolLimit, RunRecord, RunStatus, SlotHolder, SortOrder, StaleCause, StaleStatus,
-    StorageBackend, StoredConditionEval, StoredConditionTick, StoredEvent, StoredTick,
+    ConcurrencyClaimStatus, CoordinatorRunInfo, EventLogPosition, IngestedEvent, PartitionKey,
+    PerCodeLocationStorage, PoolInfo, PoolLimit, RunRecord, RunStatus, SlotHolder, SortOrder,
+    StaleCause, StaleStatus, StorageBackend, StoredConditionEval, StoredConditionTick, StoredEvent,
+    StoredTick,
 };
 
 /// A backend reference pre-bound to a [`CodeLocationContext`].
@@ -416,6 +417,54 @@ impl<'a, S: PerCodeLocationStorage + ?Sized> ScopedStorage<'a, S> {
             limit,
         )
         .await
+    }
+
+    pub async fn get_runs_ended_after(
+        &self,
+        after: Option<(i64, &str)>,
+        until: i64,
+        limit: usize,
+    ) -> Result<Vec<RunRecord>> {
+        PerCodeLocationStorage::get_runs_ended_after(
+            self.backend,
+            self.code_location_id,
+            after,
+            until,
+            limit,
+        )
+        .await
+    }
+
+    pub async fn get_events_ingested_after(
+        &self,
+        after: Option<&EventLogPosition>,
+        settle_ns: i64,
+        limit: usize,
+    ) -> Result<Vec<IngestedEvent>> {
+        PerCodeLocationStorage::get_events_ingested_after(
+            self.backend,
+            self.code_location_id,
+            after,
+            settle_ns,
+            limit,
+        )
+        .await
+    }
+
+    pub async fn get_event_log_cursor(&self, consumer: &str) -> Result<Option<EventLogPosition>> {
+        self.backend
+            .get_event_log_cursor(self.code_location_id, consumer)
+            .await
+    }
+
+    pub async fn set_event_log_cursor(
+        &self,
+        consumer: &str,
+        position: &EventLogPosition,
+    ) -> Result<()> {
+        self.backend
+            .set_event_log_cursor(self.code_location_id, consumer, position)
+            .await
     }
 
     pub async fn get_condition_eval_state(
