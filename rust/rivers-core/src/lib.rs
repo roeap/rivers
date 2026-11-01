@@ -42,6 +42,14 @@ pub fn condition_pending_dispatch_key(code_location_id: &str) -> String {
     format!("{CONDITION_PENDING_DISPATCH_KEY_PREFIX}{code_location_id}")
 }
 
+pub const EVENT_LOG_CURSOR_KEY_PREFIX: &str = "event_log_cursor:";
+
+/// KV key for an event-log consumer's position — per-CL and per-consumer, so
+/// each code location's daemon tails its own events independently.
+pub fn event_log_cursor_key(code_location_id: &str, consumer: &str) -> String {
+    format!("{EVENT_LOG_CURSOR_KEY_PREFIX}{consumer}:{code_location_id}")
+}
+
 pub const DYNAMIC_KEYS_KEY_PREFIX: &str = "dynamic_keys:";
 
 /// KV key for a fan-out source's mapping keys. Keyed by `data_version` so each

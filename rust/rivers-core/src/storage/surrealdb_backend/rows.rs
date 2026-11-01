@@ -1,8 +1,9 @@
 use surrealdb::types::{Bytes, RecordId, SurrealValue};
 
 use crate::storage::{
-    ConditionEvalRecord, ConditionTickRecord, EventRecord, EventType, LogRecord, PartitionKey,
-    StoredConditionEval, StoredConditionTick, StoredEvent, StoredLog, StoredTick, TickRecord,
+    ConditionEvalRecord, ConditionTickRecord, EventLogPosition, EventRecord, EventType,
+    IngestedEvent, LogRecord, PartitionKey, StoredConditionEval, StoredConditionTick, StoredEvent,
+    StoredLog, StoredTick, TickRecord,
 };
 
 #[derive(Debug, SurrealValue)]
@@ -133,6 +134,57 @@ pub(super) struct DbStoredEvent {
     code_version: Option<String>,
     #[serde(default)]
     input_data_versions: Vec<(String, String)>,
+}
+
+/// Full event row with its ingest time, behind
+/// `SurrealStorage::get_events_ingested_after`.
+#[derive(Debug, Clone, SurrealValue, serde::Serialize, serde::Deserialize)]
+pub(super) struct DbIngestedEvent {
+    id: RecordId,
+    #[serde(default = "crate::storage::default_code_location_id")]
+    code_location_id: String,
+    event_type: String,
+    asset_key: Option<String>,
+    run_id: String,
+    partition_key: Option<PartitionKey>,
+    timestamp: i64,
+    metadata: Vec<(String, String)>,
+    data_version: Option<String>,
+    #[serde(default)]
+    input_data_versions: Vec<(String, String)>,
+    ingested_at: i64,
+}
+
+impl DbIngestedEvent {
+    /// `None` for a row whose event type this build doesn't know — a tailer
+    /// skips it rather than misreading it as another type.
+    pub(super) fn into_ingested_event(self) -> Option<IngestedEvent> {
+        let event_type = EventType::from_type_name(&self.event_type, self.data_version).ok()?;
+        Some(IngestedEvent {
+            position: EventLogPosition {
+                ingested_at: self.ingested_at,
+                event_id: record_key_string(&self.id),
+            },
+            event: EventRecord {
+                code_location_id: self.code_location_id,
+                event_type,
+                asset_key: self.asset_key,
+                run_id: self.run_id,
+                partition_key: self.partition_key,
+                timestamp: self.timestamp,
+                metadata: self.metadata,
+                input_data_versions: self.input_data_versions,
+            },
+        })
+    }
+}
+
+/// The key of a record id as a plain string (`events:abc` → `abc`).
+fn record_key_string(id: &RecordId) -> String {
+    match &id.key {
+        surrealdb::types::RecordIdKey::String(s) => s.clone(),
+        other => format!("{other:?}"),
+    }
 }
 
 /// Projection behind `SurrealStorage::step_outcomes`. A step event always
@@ -341,7 +393,7 @@ impl DbEventWrite {
             metadata: e.metadata.clone(),
             data_version: e.event_type.data_version().map(|s| s.to_string()),
             code_version: None,
-            input_data_versions: Vec::new(),
+            input_data_versions: e.input_data_versions.clone(),
         }
     }
 }

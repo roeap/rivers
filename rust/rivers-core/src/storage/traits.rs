@@ -6,9 +6,10 @@ use anyhow::Result;
 use super::{
     AssetRecord, AssetScope, BackfillRecord, BackfillStatus, ConcurrencyClaimStatus,
     ConditionEvalRecord, ConditionTickRecord, CoordinatorRunInfo, DEFAULT_CODE_LOCATION_ID,
-    EventRecord, LogRecord, PartitionKey, PoolInfo, PoolLimit, RunOutcome, RunProgress, RunRecord,
-    RunStatus, ScopedStorage, SlotHolder, SortOrder, StepAttempts, StepOutcome,
-    StoredConditionEval, StoredConditionTick, StoredEvent, StoredLog, StoredTick, TickRecord,
+    EventLogPosition, EventRecord, IngestedEvent, LogRecord, PartitionKey, PoolInfo, PoolLimit,
+    RunOutcome, RunProgress, RunRecord, RunStatus, ScopedStorage, SlotHolder, SortOrder,
+    StepAttempts, StepOutcome, StoredConditionEval, StoredConditionTick, StoredEvent, StoredLog,
+    StoredTick, TickRecord,
 };
 
 /// A code-location identity bound for the lifetime of a logical operation.
@@ -341,6 +342,45 @@ pub(crate) trait PerCodeLocationStorage: Send + Sync {
         job_names: Option<&[String]>,
         limit: usize,
     ) -> impl Future<Output = Result<Vec<RunRecord>>> + Send;
+
+    /// Runs of this code location that ended (`Success`, `Failure` or
+    /// `Canceled`) strictly after `after` = `(end_time, run_id)`, ordered by
+    /// that pair. Exact keyset pagination for tailers.
+    fn get_runs_ended_after(
+        &self,
+        code_location_id: &str,
+        after: Option<(i64, &str)>,
+        until: i64,
+        limit: usize,
+    ) -> impl Future<Output = Result<Vec<RunRecord>>> + Send;
+
+    /// Events of this code location strictly after `after`, in ingest order.
+    ///
+    /// Rows ingested within the last `settle_ns` (by the storage server's clock)
+    /// are held back. A transaction that read the clock earlier can commit
+    /// later, and a tailer that moved past it would never see the row.
+    fn get_events_ingested_after(
+        &self,
+        code_location_id: &str,
+        after: Option<&EventLogPosition>,
+        settle_ns: i64,
+        limit: usize,
+    ) -> impl Future<Output = Result<Vec<IngestedEvent>>> + Send;
+
+    /// Read the event-log position persisted by `consumer` for this CL.
+    fn get_event_log_cursor(
+        &self,
+        code_location_id: &str,
+        consumer: &str,
+    ) -> impl Future<Output = Result<Option<EventLogPosition>>> + Send;
+
+    /// Persist the event-log position `consumer` has processed up to, for this CL.
+    fn set_event_log_cursor(
+        &self,
+        code_location_id: &str,
+        consumer: &str,
+        position: &EventLogPosition,
+    ) -> impl Future<Output = Result<()>> + Send;
 
     /// Read the persisted condition-daemon eval state for this CL.
     fn get_condition_eval_state(

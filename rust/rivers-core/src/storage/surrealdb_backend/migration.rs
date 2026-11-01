@@ -102,7 +102,7 @@ impl AsyncMigrate for SurrealMigrate {
 
 /// Highest embedded migration version. Bump by adding a `Vn__*.surql` + an
 /// [`embedded_migrations`] entry; a test pins this to that max.
-const SCHEMA_VERSION: u32 = 12;
+const SCHEMA_VERSION: u32 = 13;
 
 /// One compat row per migration (the floors it set), folded by the open guard.
 const MIGRATION_META_TABLE: &str = "migration_meta";
@@ -167,6 +167,11 @@ fn embedded_migrations() -> Vec<Migration> {
             include_str!("migrations/V12__backfill_progress_rows.surql"),
         )
         .expect("V12__backfill_progress_rows migration name is well-formed"),
+        Migration::unapplied(
+            "V13__events_ingested_at",
+            include_str!("migrations/V13__events_ingested_at.surql"),
+        )
+        .expect("V13__events_ingested_at migration name is well-formed"),
     ]
 }
 
