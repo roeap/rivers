@@ -6,11 +6,23 @@ Always available: :class:`BaseIOHandler`, :class:`InMemoryIOHandler`,
 handler only when ``pyiceberg`` is installed (``pip install rivers[iceberg]``).
 """
 
+from rivers.io_handlers._lineage import (
+    LINEAGE_DATASET_KEY,
+    lineage_dataset,
+    location_dataset_name,
+)
 from rivers.io_handlers.base import BaseIOHandler
 from rivers.io_handlers.memory import InMemoryIOHandler
 from rivers.io_handlers.pickle import PickleIOHandler
 
-__all__ = ["BaseIOHandler", "InMemoryIOHandler", "PickleIOHandler"]
+__all__ = [
+    "LINEAGE_DATASET_KEY",
+    "BaseIOHandler",
+    "InMemoryIOHandler",
+    "PickleIOHandler",
+    "lineage_dataset",
+    "location_dataset_name",
+]
 
 try:
     from rivers.io_handlers.delta import DeltaIOHandler

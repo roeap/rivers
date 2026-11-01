@@ -95,6 +95,32 @@ pub(crate) fn spawn_backfill_pickup_loop(
     })
 }
 
+/// Lineage emitter — tails this CL's event log and delivers OpenLineage
+/// events. `None` when lineage isn't configured (no `RIVERS_LINEAGE_URL` /
+/// `OPENLINEAGE_URL`), or the config is invalid (logged).
+pub(crate) fn spawn_lineage_emitter(
+    handle: ScopedStorageHandle<SurrealStorage>,
+    cancel: CancellationToken,
+) -> Option<tokio::task::JoinHandle<()>> {
+    let cfg = match rivers_lineage::LineageConfig::from_env() {
+        Ok(Some(cfg)) => cfg,
+        Ok(None) => return None,
+        Err(e) => {
+            tracing::error!(target: "rivers::lineage", error = %e, "invalid lineage config; lineage disabled");
+            return None;
+        }
+    };
+    let transport = match rivers_lineage::HttpTransport::new(&cfg) {
+        Ok(t) => Arc::new(t),
+        Err(e) => {
+            tracing::error!(target: "rivers::lineage", error = %e, "cannot build lineage transport; lineage disabled");
+            return None;
+        }
+    };
+    let emitter = rivers_lineage::LineageEmitter::new(handle, transport, cfg);
+    Some(tokio::spawn(emitter.run(cancel)))
+}
+
 /// Run queue coordinator — dequeues runs and launches them, with periodic health checks.
 pub(crate) fn spawn_run_queue_coordinator(
     rq_config: rivers_core::concurrency::RunQueueConfig,

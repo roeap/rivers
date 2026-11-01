@@ -1,5 +1,6 @@
 """IcebergIOHandler: types, output metadata, write modes, schema evolution, names, reads."""
 
+import json
 import sys
 from datetime import datetime, timezone
 
@@ -114,6 +115,18 @@ def test_output_metadata_and_data_version(tmp_path):
     assert isinstance(meta["iceberg/write_duration_s"], rs.MetadataValue.Float)
     assert meta["iceberg/metadata_location"].raw_value() == table.metadata_location
     assert isinstance(meta["rivers/schema"], rs.MetadataValue.Schema)
+    assert json.loads(meta["rivers/lineage_dataset"].raw_value()) == {
+        "namespace": "file",
+        "name": table.location().removeprefix("file://"),
+        "version": str(snapshot.snapshot_id),
+        "symlinks": [
+            {
+                "namespace": "iceberg://rivers_test",
+                "name": "ns.t",
+                "type": "TABLE",
+            }
+        ],
+    }
     assert ctx.drain_data_version() == str(snapshot.snapshot_id)
 
     appended = write_output(

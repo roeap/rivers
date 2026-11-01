@@ -52,8 +52,8 @@ use schedule::ScheduleInfo;
 use sensors::SensorInfo;
 pub(crate) use subdaemons::fail_unlaunched_run;
 use subdaemons::{
-    spawn_backfill_monitor, spawn_backfill_pickup_loop, spawn_run_queue_coordinator,
-    spawn_schedule_sensor_loop,
+    spawn_backfill_monitor, spawn_backfill_pickup_loop, spawn_lineage_emitter,
+    spawn_run_queue_coordinator, spawn_schedule_sensor_loop,
 };
 
 pub(crate) use parse::{
@@ -584,6 +584,10 @@ async fn daemon_main_loop(config: DaemonLoopConfig) {
     }
 
     handles.push(spawn_backfill_monitor(handle.clone(), cancel.clone()));
+
+    if let Some(h) = spawn_lineage_emitter(handle.clone(), cancel.clone()) {
+        handles.push(h);
+    }
 
     handles.push(spawn_schedule_sensor_loop(
         automations,

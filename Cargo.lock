@@ -5270,6 +5270,22 @@ dependencies = [
 ]
 
 [[package]]
+name = "openlineage-client"
+version = "0.0.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1e8430f4b5d98b67a144214c5a3e0b289fd1de8d1e8f2c945d494aa185e27186"
+dependencies = [
+ "async-trait",
+ "serde",
+ "serde_json",
+ "thiserror 2.0.20",
+ "tokio",
+ "tracing",
+ "url",
+ "uuid",
+]
+
+[[package]]
 name = "openssl-probe"
 version = "0.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -6894,6 +6910,7 @@ dependencies = [
  "rivers-api",
  "rivers-core",
  "rivers-k8s",
+ "rivers-lineage",
  "rivers-ui",
  "rustls",
  "rustls-native-certs",
@@ -6980,6 +6997,27 @@ dependencies = [
  "serde_yaml 0.9.34+deprecated",
  "tokio",
  "tracing",
+]
+
+[[package]]
+name = "rivers-lineage"
+version = "0.0.0-dev"
+dependencies = [
+ "anyhow",
+ "arrow-ipc",
+ "arrow-schema",
+ "async-trait",
+ "jiff",
+ "openlineage-client",
+ "reqwest 0.13.4",
+ "rivers-core",
+ "serde",
+ "serde_json",
+ "tokio",
+ "tokio-util",
+ "tracing",
+ "url",
+ "uuid",
 ]
 
 [[package]]
@@ -8055,6 +8093,12 @@ dependencies = [
  "cpufeatures 0.3.0",
  "digest 0.11.3",
 ]
+
+[[package]]
+name = "sha1_smol"
+version = "1.0.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "bbfa15b3dddfee50a0fff136974b3e1bde555604ba463834a7eb7deb6417705d"
 
 [[package]]
 name = "sha2"
@@ -10240,6 +10284,7 @@ dependencies = [
  "getrandom 0.4.2",
  "js-sys",
  "serde_core",
+ "sha1_smol",
  "wasm-bindgen",
 ]
 

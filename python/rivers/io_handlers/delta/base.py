@@ -13,6 +13,11 @@ from arro3.core import RecordBatchReader
 from deltalake import CommitProperties, DeltaTable, WriterProperties, write_deltalake
 
 from rivers._core import OutputContext
+from rivers.io_handlers._lineage import (
+    LINEAGE_DATASET_KEY,
+    lineage_dataset,
+    location_dataset_name,
+)
 from rivers.io_handlers.delta.config import MergeConfig
 from rivers.io_handlers.delta.merge import _merge_execute
 
@@ -150,6 +155,9 @@ class ArrowDeltaTypeHandler(DeltaTypeHandler, ABC, Generic[T]):
             "delta/write_duration_s": round(duration, 6),
             "delta/version": dt.version(),
             "rivers/schema": MetadataValue.schema(arrow_schema),
+            LINEAGE_DATASET_KEY: lineage_dataset(
+                *location_dataset_name(request.table_uri), version=dt.version()
+            ),
         }
         if merge_stats is not None:
             output_meta["delta/num_output_rows"] = merge_stats.get("num_output_rows", 0)

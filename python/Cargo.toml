@@ -13,6 +13,7 @@ crate-type = ["cdylib"]
 rivers-core = { path = "../rust/rivers-core" }
 rivers-ui = { path = "../rust/rivers-ui", features = ["ssr"] }
 rivers-api = { path = "../rust/rivers-api" }
+rivers-lineage = { path = "../rust/rivers-lineage" }
 petgraph.workspace = true
 tonic.workspace = true
 http = "1"

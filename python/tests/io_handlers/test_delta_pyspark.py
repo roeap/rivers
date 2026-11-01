@@ -9,6 +9,8 @@ the Delta only for this test file.
 
 from __future__ import annotations
 
+import json
+
 import pytest
 
 pytest.importorskip("deltalake")
@@ -418,6 +420,11 @@ def test_output_metadata_pyspark(tmp_path, spark):
     assert meta["delta/num_rows"].raw_value() == 2
     assert isinstance(meta["delta/size_bytes"], rs.MetadataValue.Int)
     assert isinstance(meta["delta/write_duration_s"], rs.MetadataValue.Float)
+    assert json.loads(meta["rivers/lineage_dataset"].raw_value()) == {
+        "namespace": "file",
+        "name": f"{uri}/tbl",
+        "version": str(meta["delta/version"].raw_value()),
+    }
     assert isinstance(meta["delta/version"], rs.MetadataValue.Int)
     assert meta["delta/version"].raw_value() == 0
     schema = meta["rivers/schema"].raw_value()
