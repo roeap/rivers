@@ -4,6 +4,7 @@ from pathlib import Path
 
 from rivers.cli.config import (
     DaemonConfig,
+    LineageConfig,
     ModuleConfig,
     RiversConfig,
     ServerConfig,
@@ -399,3 +400,56 @@ class TestFromCli:
         _make_rivers_toml(tmp_path, daemon={"no_daemon": True})
         assert RiversConfig.from_cli().daemon.no_daemon is True
         assert RiversConfig.from_cli(no_daemon=False).daemon.no_daemon is False
+
+
+# ---------------------------------------------------------------------------
+# [lineage]
+# ---------------------------------------------------------------------------
+
+
+class TestLineageConfig:
+    @staticmethod
+    def _clear_lineage_env(monkeypatch):
+        """Unset every lineage variable, and have teardown unset them again
+        so values ``export_env`` writes don't leak into other tests."""
+        import os
+
+        fields = ("URL", "ENDPOINT", "API_KEY", "NAMESPACE", "ENABLED")
+        keys = {f"RIVERS_LINEAGE_{f}" for f in fields} | {
+            k for k in os.environ if k.startswith(("RIVERS_LINEAGE_", "OPENLINEAGE_"))
+        }
+        for key in keys:
+            monkeypatch.setenv(key, "")
+            monkeypatch.delenv(key)
+
+    def test_off_by_default(self, tmp_path, monkeypatch):
+        monkeypatch.chdir(tmp_path)
+        self._clear_lineage_env(monkeypatch)
+        assert RiversConfig().lineage == LineageConfig()
+
+    def test_reads_toml_and_env(self, tmp_path, monkeypatch):
+        monkeypatch.chdir(tmp_path)
+        self._clear_lineage_env(monkeypatch)
+        _make_rivers_toml(
+            tmp_path,
+            lineage={"url": "http://toml:8091", "namespace": "analytics"},
+        )
+        monkeypatch.setenv("RIVERS_LINEAGE_API_KEY", "secret")
+        monkeypatch.setenv("RIVERS_LINEAGE_URL", "http://env:8091")
+        cfg = RiversConfig().lineage
+        assert cfg.url == "http://env:8091"
+        assert cfg.namespace == "analytics"
+        assert cfg.api_key == "secret"
+
+    def test_export_env_hands_toml_values_to_the_daemon(self, tmp_path, monkeypatch):
+        import os
+
+        monkeypatch.chdir(tmp_path)
+        self._clear_lineage_env(monkeypatch)
+        _make_pyproject_toml(
+            tmp_path, lineage={"url": "http://hw:8091", "enabled": False}
+        )
+        RiversConfig().lineage.export_env()
+        assert os.environ["RIVERS_LINEAGE_URL"] == "http://hw:8091"
+        assert os.environ["RIVERS_LINEAGE_ENABLED"] == "false"
+        assert "RIVERS_LINEAGE_API_KEY" not in os.environ

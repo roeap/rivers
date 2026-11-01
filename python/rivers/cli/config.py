@@ -1,3 +1,4 @@
+import os
 from pathlib import Path
 
 from pydantic import BaseModel, Field
@@ -35,6 +36,31 @@ class SyntheticConfig(BaseModel):
     size: str | None = None
 
 
+class LineageConfig(BaseModel):
+    """OpenLineage emission from the daemon (see the lineage guide).
+
+    Off until ``url`` is set. The daemon reads these as ``RIVERS_LINEAGE_*``
+    environment variables, so the CLI hands them on with :meth:`export_env`.
+    """
+
+    url: str | None = None
+    endpoint: str | None = None
+    api_key: str | None = None
+    namespace: str | None = None
+    enabled: bool | None = None
+
+    def export_env(self) -> None:
+        """Set ``RIVERS_LINEAGE_<FIELD>`` for every configured field.
+
+        Environment values already won the merge, so this only adds what came
+        from ``rivers.toml`` / ``pyproject.toml``.
+        """
+        for field, value in self.model_dump(exclude_none=True).items():
+            if isinstance(value, bool):
+                value = "true" if value else "false"
+            os.environ[f"RIVERS_LINEAGE_{field.upper()}"] = str(value)
+
+
 class RiversEnvSource(EnvSettingsSource):
     def _load_env_vars(self):
         env = super()._load_env_vars()
@@ -51,6 +77,7 @@ class RiversConfig(BaseSettings):
     server: ServerConfig = Field(default_factory=ServerConfig)
     daemon: DaemonConfig = Field(default_factory=DaemonConfig)
     synthetic: SyntheticConfig = Field(default_factory=SyntheticConfig)
+    lineage: LineageConfig = Field(default_factory=LineageConfig)
 
     model_config = SettingsConfigDict(
         env_prefix="RIVERS_",

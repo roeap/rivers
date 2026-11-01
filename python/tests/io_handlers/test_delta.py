@@ -175,6 +175,11 @@ def test_output_metadata(tmp_path):
     assert meta["delta/num_rows"].raw_value() == 2
     assert isinstance(meta["delta/size_bytes"], rs.MetadataValue.Int)
     assert isinstance(meta["delta/write_duration_s"], rs.MetadataValue.Float)
+    assert json.loads(meta["rivers/lineage_dataset"].raw_value()) == {
+        "namespace": "file",
+        "name": f"{uri}/tbl",
+        "version": str(meta["delta/version"].raw_value()),
+    }
 
 
 def test_single_partition_isolation(tmp_path):

@@ -73,6 +73,7 @@ nav:
       - Graph Assets: guides/graph-assets.md
       - Partitioned Assets: guides/partitioned-assets.md
       - Authentication: guides/authentication.md
+      - Lineage (OpenLineage): guides/lineage.md
   - Integrations:
       - integrations/index.md
       - Ingestion:

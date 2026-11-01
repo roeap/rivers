@@ -57,6 +57,8 @@ def dev(
     )
 
     os.environ["RIVERS_DEPLOYMENT"] = "dev"
+    # The code-location child runs the daemon, and with it the lineage emitter.
+    cfg.lineage.export_env()
     if cfg.module.path:
         os.environ["RIVERS_MODULE"] = cfg.module.path
 

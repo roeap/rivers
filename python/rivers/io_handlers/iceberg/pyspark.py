@@ -24,6 +24,11 @@ except ImportError:  # pyspark < 3.4
     from pyspark.sql.utils import AnalysisException  # type: ignore[no-redef]
 
 from rivers._core import MetadataValue, OutputContext
+from rivers.io_handlers._lineage import (
+    LINEAGE_DATASET_KEY,
+    iceberg_lineage_dataset,
+    iceberg_table_location,
+)
 from rivers.io_handlers._partition_sql import _build_predicate
 from rivers.io_handlers.iceberg._partitions import partition_fields
 from rivers.io_handlers.iceberg.base import (
@@ -669,6 +674,14 @@ class PySparkIcebergTypeHandler(IcebergTypeHandler[DataFrame]):
 
         if snapshot_id is not None:
             metadata["iceberg/snapshot_id"] = int(snapshot_id)
+        dataset = iceberg_lineage_dataset(
+            self._spark_catalog,
+            request.identifier,
+            location=iceberg_table_location(metadata_location),
+            snapshot_id=int(snapshot_id) if snapshot_id is not None else None,
+        )
+        if dataset is not None:
+            metadata[LINEAGE_DATASET_KEY] = dataset
 
         context.add_output_metadata(metadata)
 

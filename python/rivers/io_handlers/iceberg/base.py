@@ -21,6 +21,7 @@ from pyiceberg.table.snapshots import Snapshot
 
 from rivers._core import MetadataValue, OutputContext
 from rivers._core.partitions import PartitionContext
+from rivers.io_handlers._lineage import LINEAGE_DATASET_KEY, iceberg_lineage_dataset
 from rivers.io_handlers._partition_sql import PartitionExpr, _build_predicate
 from rivers.io_handlers.iceberg._partitions import (
     partition_fields,
@@ -320,6 +321,14 @@ def _output_metadata(
     }
     if snapshot is not None:
         meta["iceberg/snapshot_id"] = snapshot.snapshot_id
+    dataset = iceberg_lineage_dataset(
+        request.catalog.name if request.catalog is not None else None,
+        request.identifier,
+        location=table.location(),
+        snapshot_id=snapshot.snapshot_id if snapshot is not None else None,
+    )
+    if dataset is not None:
+        meta[LINEAGE_DATASET_KEY] = dataset
     if upserted is not None:
         meta["iceberg/rows_updated"] = upserted.rows_updated
         meta["iceberg/rows_inserted"] = upserted.rows_inserted

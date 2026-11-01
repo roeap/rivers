@@ -15,6 +15,11 @@ from pyspark.sql import functions as F
 from pyspark.sql.pandas.types import to_arrow_schema
 
 from rivers._core import MetadataValue, OutputContext
+from rivers.io_handlers._lineage import (
+    LINEAGE_DATASET_KEY,
+    lineage_dataset,
+    location_dataset_name,
+)
 from rivers.io_handlers.delta import DeltaWriteRequest
 from rivers.io_handlers.delta.base import DeltaTypeHandler
 from rivers.io_handlers.delta.config import MergeConfig
@@ -457,6 +462,9 @@ class PySparkDeltaTypeHandler(DeltaTypeHandler[DataFrame]):
             "delta/write_duration_s": round(duration, 6),
             "delta/version": version,
             "rivers/schema": MetadataValue.schema(arrow_schema),
+            LINEAGE_DATASET_KEY: lineage_dataset(
+                *location_dataset_name(request.table_uri), version=version
+            ),
         }
         if merge_stats is not None:
             output_meta["delta/num_output_rows"] = merge_stats.get("numOutputRows", 0)

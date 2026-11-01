@@ -210,6 +210,13 @@ def test_spark_dataframe_round_trip_and_metadata(spark, warehouse, catalog_db):
     assert "rivers/schema" in ctx.output_metadata
     snapshot_id = ctx.output_metadata["iceberg/snapshot_id"].raw_value()
     assert isinstance(snapshot_id, int)
+    dataset = json.loads(ctx.output_metadata["rivers/lineage_dataset"].raw_value())
+    metadata_location = ctx.output_metadata["iceberg/metadata_location"].raw_value()
+    assert dataset["name"] in metadata_location.split("/metadata/")[0]
+    assert dataset["version"] == str(snapshot_id)
+    assert dataset["symlinks"] == [
+        {"namespace": f"iceberg://{_CATALOG}", "name": f"ns.{name}", "type": "TABLE"}
+    ]
     assert ctx.drain_data_version() == str(snapshot_id)
 
 
